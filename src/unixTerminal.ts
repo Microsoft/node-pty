@@ -36,8 +36,15 @@ export class UnixTerminal extends Terminal {
   private _master: net.Socket;
   private _slave: net.Socket;
 
+  private _baton1: number;
+  private _baton2: number;
+
   public get master(): net.Socket { return this._master; }
   public get slave(): net.Socket { return this._slave; }
+
+  public setProcessNameCallback(cb: Function | null): void {
+    pty.setProcessNameCallback(this._baton1, this._baton2, cb, 100, 5);
+  }
 
   constructor(file?: string, args?: ArgvOrCommandLine, opt?: IPtyForkOptions) {
     super(opt);
@@ -98,6 +105,8 @@ export class UnixTerminal extends Terminal {
 
     // fork
     const term = pty.fork(file, args, parsedEnv, cwd, cols, rows, uid, gid, (encoding === 'utf8'), onexit);
+    this._baton1 = term._baton1;
+    this._baton2 = term._baton2;
 
     this._socket = new PipeSocket(term.fd);
     if (encoding !== null) {
