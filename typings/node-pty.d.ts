@@ -1,3 +1,5 @@
+import { Socket } from "net";
+
 /**
  * Copyright (c) 2017, Daniel Imms (MIT License).
  * Copyright (c) 2018, Microsoft Corporation (MIT License).
@@ -110,6 +112,11 @@ declare module 'node-pty' {
      * @throws Will throw when signal is used on Windows.
      */
     kill(signal?: string): void;
+
+    /**
+     * Return the socket this instance is using to communicate with the internal pty. Use at your own risk!
+     */
+    getSocket(): Socket;
   }
 
   /**

@@ -159,4 +159,8 @@ export abstract class Terminal implements ITerminal {
 
     return pairs;
   }
+
+  getSocket(): Socket {
+    return this._socket;
+  }
 }
