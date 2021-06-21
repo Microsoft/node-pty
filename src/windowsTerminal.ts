@@ -123,18 +123,22 @@ export class WindowsTerminal extends Terminal {
     this._forwardEvents();
   }
 
-  protected _write(data: string): void {
-    this._defer(this._doWrite, data);
+  protected _write(data: string, callback?: (flushed: boolean) => any): void {
+    this._defer(this._doWrite, data, callback);
   }
 
-  private _doWrite(data: string): void {
-    this._agent.inSocket.write(data);
+  private _doWrite(data: string, callback?: (flushed: boolean) => any): void {
+    if (callback) {
+      callback(this._agent.inSocket.write(data, () => callback(true)));
+    }
+    else {
+      this._agent.inSocket.write(data);
+    }
   }
 
   /**
    * openpty
    */
-
   public static open(options?: IPtyOpenOptions): void {
     throw new Error('open() not supported on windows, use Fork() instead.');
   }
@@ -170,16 +174,16 @@ export class WindowsTerminal extends Terminal {
     });
   }
 
-  private _defer<A extends any>(deferredFn: (arg?: A) => void, arg?: A): void {
+  private _defer<A extends any>(deferredFn: (...args: A[]) => void, ...args: A[]): void {
     // If the terminal is ready, execute.
     if (this._isReady) {
-      deferredFn.call(this, arg);
+      deferredFn.apply(this, args);
       return;
     }
 
     // Queue until terminal is ready.
     this._deferreds.push({
-      run: () => deferredFn.call(this, arg)
+      run: () => deferredFn.apply(this, args)
     });
   }
 

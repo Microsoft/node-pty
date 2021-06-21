@@ -8,6 +8,7 @@ import { WindowsTerminal } from './windowsTerminal';
 import { UnixTerminal } from './unixTerminal';
 import { Terminal } from './terminal';
 import { Socket } from 'net';
+import { pollUntil } from './testUtils.test';
 
 const terminalConstructor = (process.platform === 'win32') ? WindowsTerminal : UnixTerminal;
 const SHELL = (process.platform === 'win32') ? 'cmd.exe' : '/bin/bash';
@@ -46,6 +47,11 @@ class TestTerminal extends Terminal {
   }
 }
 
+function newTerminal(): Terminal {
+  return process.platform === 'win32' ? new WindowsTerminal() : new UnixTerminal();
+}
+
+
 describe('Terminal', () => {
   describe('constructor', () => {
     it('should do basic type checks', () => {
@@ -54,6 +60,79 @@ describe('Terminal', () => {
         'name must be a string (not a object)'
       );
     });
+  });
+
+  describe('write basics',  () => {
+
+    it('should emit "data"', (done) => {
+      const terminal = newTerminal();
+      let allTheData = '';
+      terminal.on('data', (chunk) => {
+        allTheData += chunk;
+      });
+      pollUntil(() => {
+        if (allTheData.indexOf('hello') !== -1 && allTheData.indexOf('world') !== -1) {
+          done();
+          return true;
+        }
+        return false;
+      });
+      terminal.write('hello');
+      terminal.write('world');
+    });
+
+    it('should let us know if the entire data was flushed successfully to the kernel buffer or was queued in user memory and in the later case when it finish to be consumed', (done) => {
+      const shortString = 'ls';
+      const terminal = newTerminal();
+      let isDone = false;
+      terminal.write(shortString, (flushed: boolean) => {
+        if (!isDone) {
+          isDone = true;
+          done();
+        }
+      });
+    });
+  });
+
+  describe('write() data flush and "drain" event', () => {
+    it('should provide meanings to know if the entire data was flushed successfully to the kernel buffer or was queued in user memory', async () => {
+      let shouldEmitDrain: boolean = false;
+      let drainEmitted: boolean = false;
+      function buildLongInput(): string {
+        const count = process.platform === 'win32' ? 8 : 6;
+        let s = buildLongInput.toString() + '\f';
+        for (let i = 0; i < count; i++) {
+          s += s;
+        }
+        return s;
+      }
+
+      const longString = buildLongInput();
+      const terminal = newTerminal();
+      terminal.on('drain', () => {
+        drainEmitted = true;
+      });
+      let flushedAlready = false;
+      await new Promise<void>(r => {
+        terminal.write(longString, (flushed: boolean) => {
+          if (!flushedAlready && flushed) {
+            flushedAlready = true;
+            r();
+          } else {
+            shouldEmitDrain = true;
+          }
+        });
+      });
+
+      // should emit "drain" event to know when the kernel buffer is free again
+      if (process.platform === 'win32') {
+        assert.ok(true, 'winpty doesn\'t support "drain" event');
+      } else if (shouldEmitDrain) {
+        assert.ok(drainEmitted, '"drain" event should be emitted when input to write cannot be flushed entirely');
+      } else {
+        assert.ok(!drainEmitted, '"drain" event shouldn\'t be emitted if write input was flushed entirely');
+      }
+    }).timeout(4000);
   });
 
   describe('checkType', () => {

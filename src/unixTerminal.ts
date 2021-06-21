@@ -165,8 +165,8 @@ export class UnixTerminal extends Terminal {
     this._forwardEvents();
   }
 
-  protected _write(data: string): void {
-    this._socket.write(data);
+  protected _write(data: string, callback?: (flushed: boolean) => any): void {
+    return callback ? callback(this._socket.write(data, () => callback(true))) : this._socket.write(data);
   }
 
   /**

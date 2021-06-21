@@ -20,9 +20,18 @@ export interface ITerminal {
 
   /**
    * Writes data to the socket.
-   * @param data The data to write.
+   * @param data The data to write. If you want to simulate pressing the ENTER
+   * key like when entering a command, finish the string with the character
+   * `'\r'`.
+   * @param callback An optional function that is called and provides `true` if
+   * the entire data was flushed successfully to the kernal buffer or called
+   * with `false` if all or part of the data was queued in user memory. The
+   * 'drain' event will be emitted when the buffer is again free. Note that this
+   * callback could be called several times.
+   * @see {@link https://nodejs.org/api/net.html#net_socket_write_data_encoding_callback}
+   * for more information on how the callback parameter works.
    */
-  write(data: string): void;
+  write(data: string, callback?: (flushed: boolean) => any): void;
 
   /**
    * Resize the pty.

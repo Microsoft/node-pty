@@ -42,6 +42,8 @@ export abstract class Terminal implements ITerminal {
 
   private _onData = new EventEmitter2<string>();
   public get onData(): IEvent<string> { return this._onData.event; }
+  private _onDrain = new EventEmitter2<void>();
+  public get onDrain(): IEvent<void> { return this._onDrain.event; }
   private _onExit = new EventEmitter2<IExitEvent>();
   public get onExit(): IEvent<IExitEvent> { return this._onExit.event; }
 
@@ -74,9 +76,9 @@ export abstract class Terminal implements ITerminal {
     this._flowControlResume = opt.flowControlResume || FLOW_CONTROL_RESUME;
   }
 
-  protected abstract _write(data: string): void;
+  protected abstract _write(data: string, callback?: (flushed: boolean) => any): void;
 
-  public write(data: string): void {
+  public write(data: string, callback?: (flushed: boolean) => any): void {
     if (this.handleFlowControl) {
       // PAUSE/RESUME messages are not forwarded to the pty
       if (data === this._flowControlPause) {
@@ -89,11 +91,12 @@ export abstract class Terminal implements ITerminal {
       }
     }
     // everything else goes to the real pty
-    this._write(data);
+    this._write(data, callback);
   }
 
   protected _forwardEvents(): void {
     this.on('data', e => this._onData.fire(e));
+    this.on('drain', () => this._onDrain.fire());
     this.on('exit', (exitCode, signal) => this._onExit.fire({ exitCode, signal }));
   }
 
